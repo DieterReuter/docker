@@ -77,6 +77,8 @@ for version in "${versions[@]}"; do
 			dockerBuildTags="$dockerBuildTags seccomp"
 			runcBuildTags="$runcBuildTags seccomp"
 			;;
+		jessie)
+			;;
 		*)
 			echo "Unsupported distro:" $distro:$suite
 			rm -fr "$version"
@@ -97,18 +99,35 @@ for version in "${versions[@]}"; do
 			;;
 	esac
 
-	echo "# Install Go" >> "$version/Dockerfile"
-	echo "# aarch64 doesn't have official go binaries, so use the version of go installed from" >> "$version/Dockerfile"
-	echo "# the image to build go from source." >> "$version/Dockerfile"
+	case "$suite" in
+		jessie)
+			echo "# Install Go" >> "$version/Dockerfile"
 
-	awk '$1 == "ENV" && $2 == "GO_VERSION" { print; exit }' ../../../../Dockerfile.aarch64 >> "$version/Dockerfile"
-	echo 'RUN mkdir /usr/src/go && curl -fsSL https://golang.org/dl/go${GO_VERSION}.src.tar.gz | tar -v -C /usr/src/go -xz --strip-components=1 \' >> "$version/Dockerfile"
-	echo '	&& cd /usr/src/go/src \' >> "$version/Dockerfile"
-	echo '	&& GOOS=linux GOARCH=arm64 GOROOT_BOOTSTRAP="$(go env GOROOT)" ./make.bash' >> "$version/Dockerfile"
-	echo >> "$version/Dockerfile"
+			awk '$1 == "ENV" && $2 == "GO_VERSION" { print; exit }' ../../../../Dockerfile.aarch64 >> "$version/Dockerfile"
+			echo 'RUN mkdir /usr/local/go \' >> "$version/Dockerfile"
+			echo '  && curl -fsSL https://github.com/hypriot/golang-armbuilds/releases/download/v1.7.4/go1.7.4.linux-arm64.tar.gz | tar -v -C /usr/local/go -xz --strip-components=1' >> "$version/Dockerfile"
+			echo >> "$version/Dockerfile"
 
-	echo 'ENV PATH $PATH:/usr/src/go/bin' >> "$version/Dockerfile"
-	echo >> "$version/Dockerfile"
+			echo 'ENV GOROOT /usr/local/go' >> "$version/Dockerfile"
+			echo 'ENV PATH $PATH:/usr/local/go/bin' >> "$version/Dockerfile"
+			echo >> "$version/Dockerfile"
+			;;
+		*)
+			echo "# Install Go" >> "$version/Dockerfile"
+			echo "# aarch64 doesn't have official go binaries, so use the version of go installed from" >> "$version/Dockerfile"
+			echo "# the image to build go from source." >> "$version/Dockerfile"
+
+			awk '$1 == "ENV" && $2 == "GO_VERSION" { print; exit }' ../../../../Dockerfile.aarch64 >> "$version/Dockerfile"
+			echo 'RUN mkdir /usr/local/go && curl -fsSL https://golang.org/dl/go${GO_VERSION}.src.tar.gz | tar -v -C /usr/local/go -xz --strip-components=1 \' >> "$version/Dockerfile"
+			echo '	&& cd /usr/local/go/src \' >> "$version/Dockerfile"
+			echo '	&& GOOS=linux GOARCH=arm64 GOROOT_BOOTSTRAP="$(go env GOROOT)" ./make.bash' >> "$version/Dockerfile"
+			echo >> "$version/Dockerfile"
+
+			echo 'ENV GOROOT /usr/local/go' >> "$version/Dockerfile"
+			echo 'ENV PATH $PATH:/usr/local/go/bin' >> "$version/Dockerfile"
+			echo >> "$version/Dockerfile"
+			;;
+	esac
 
 	echo "ENV AUTO_GOPATH 1" >> "$version/Dockerfile"
 	echo >> "$version/Dockerfile"
